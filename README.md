@@ -1,23 +1,42 @@
+
 # yshop_ranking_tracker
+Automated ranking tracker for Yahoo Shopping's Korean cosmetics（韓コスメ）promotion page.
 
-Yahoo Shopping 한국 화장품(K-beauty) 카테고리 랭킹 자동 수집 도구
+## Overview
+Collects popular brand and product from the category ranking sections on Yahoo Shopping's 韓コスメ page.
 
-## 개요
-Yahoo Shopping 프로모션 페이지의 카테고리랭킹 섹션(화장수, 미용액, 크림, 시트마스크, 클렌징, 자외선차단제, 베이스메이크, 아이메이크, 립)에서
-인기 브랜드·상품 데이터를 자동으로 수집합니다.
+## Tech Stack
+- python (BeautifulSoup4)
+- Yahoo Shopping's internal mc-module API response parsing
 
-## 기술 스택
-- Python (requests, BeautifulSoup4)
-- Yahoo Shopping 내부 API(`mc-module`) 응답 파싱
+## How It Works
+Calling the mc-module API directly from Python gets blocked by bot detection. 
+So instead:
+ 
+ 1. The request is captured from the browser console using the real, authenticated session ("Copy as fetch" + a download snippet), and saved locally as ranking_data.json
+ 2. This script reads that file and parses the htmlTag fields inside it.
+ 3. Since the response's module order isn't reliably tied to category, 
+    the script identifies category by counting the order in which product-containing modules appear, then maps them to the page's tab order
 
-## 수집 데이터
-- 상품명 / 브랜드명
-- 상품 링크
-- 실질가
-- 리뷰 수 / 별점
+## Data Collected
+- Product name
+- Product URL
+- Price (discounted)
+- Category
+- Original price
+- Store name
+- Rank within category
 
-## 진행 상황
-- [x] 렌더링 방식 조사 (서버사이드 렌더링 vs API 기반)
-- [x] 데이터 소스 API 특정 (`mc-module` 응답 구조 확인)
-- [ ] 파싱 로직 구현
-- [ ] Google Sheets 연동 자동화
+## Usage
+```
+python ranking_collector.py
+```
+Requires ranking_data.json in the same folder (see "How It Works" above for how to generate it). Outputs ranking_result.csv
+
+## Progress
+- [x] Investigated rendering method (server-side rendering vs API-based)
+- [x] Identified the data source API (mc-module response structure)
+- [x] Implemented parsing logic
+- [x] Solved bot-detection blocking via browser-session-based fetching
+- [x] Fixed category-to-product mapping
+- [ ] Google Sheets integration / scheduled automation
