@@ -1,28 +1,28 @@
 """
-Yahoo Shopping K-cosmetics 카테고리랭킹 수집기 (파서 전용)
+Yahoo Shopping K-cosmetics category ranking collector(parser only)
 
-원리:
-  - Yahoo mc-module API를 Python에서 직접 호출하면 봇 탐지로 차단됨.
-  - 대신 브라우저 콘솔(F12 -> Console)에서 실제 세션으로 mc-module을
-    fetch해서 결과를 ranking_data.json으로 다운로드한 뒤,
-    이 스크립트는 그 파일을 읽어서 htmlTag만 파싱함.
-  - 카테고리 매칭: 응답 배열 안에서 몇 번째 인덱스가 어느 카테고리인지는
-    캠페인 쪽 구조가 자주 바뀌어서(FreeHTML 스페이서 유무 등) 신뢰할 수 없었음.
-    대신 "실제 상품이 들어있는 모듈이 등장하는 순서"만 세서, 앞 2개(픽업스토어
-    위젯)를 건너뛰고 그다음 9개를 탭 순서(화장수→...→립)대로 배정함.
+How it works:
+-Calling the Yahoo mc-module ApI directly from python gets blocked flagged by bot detection, so that route's out.
+-Instead, the request is capturedfrom the browser console(F12->console)
+  using the real logged-in session, and the respinse gets downloaded as ranking_data.json.This script just read that file and parses out the HTML fields.
+-Category matvhing took a few tries to get right. Asuuning "index N in the response = category N"
+ didn't hold up, since the campaign module sturcture isn't cosistent (spacer modules come and go).
+ What's acturally works: count the order that modules WITH real products show up in, 
+ skip the first 2(those are pickup-store widgets, not real categories), then map the next 9 to the tab order (toner->~~~->lip)
 
-사용법:
-  1. 브라우저에서 mc-module 요청을 콘솔의 "Copy as fetch" + 다운로드
-     스니펫으로 ranking_data.json 다운로드
-  2. 그 파일을 이 스크립트와 같은 폴더에 두기
-  3. python ranking_collector.py 실행
-"""
+
+How to run it:
+1. In the browser, capture the mc-module request via "Copy as fetch"+the download snippet to get ranking_data.json.
+2. Drop that file in the same folder as this script.
+3. Run: python ranking_collector.py 
+
+ """
 
 from bs4 import BeautifulSoup
 import json
 import csv
 
-# 프로모션 페이지 탭 순서 그대로.
+# Same order as the tabs on the promo page
 CATEGORY_NAMES = [
     "화장수",
     "미용액",
@@ -35,12 +35,12 @@ CATEGORY_NAMES = [
     "립",
 ]
 
-# 카테고리 탭이 시작되기 전, 상품이 들어있는 픽업스토어류 위젯 개수
-# (이전 확인 기준 2개: mall_item_tag=kcos_pickupstore, kcos_pickup)
+# Number of item-containing "pickup store" widgets that show up before the REAL category tabs start 
+# (confirmed as 2: mall_item_tag=kcos_pickupstore, kcos_pickup)
 SKIP_ITEM_MODULES = 2
 
 def parse_items_from_html(html_fragment: str) -> list:
-    """htmlTag(상품 리스트 HTML 조각)에서 상품 정보 추출"""
+    """Pulls product info out of htmlTag (the product list HTML fragment)"""
     soup = BeautifulSoup(html_fragment, "html.parser")
     products = []
 
@@ -52,7 +52,7 @@ def parse_items_from_html(html_fragment: str) -> list:
         store_tag = item.select_one(".elStoreName")
 
         if not name_tag or not link_tag:
-            continue
+            continue #missing the essential, so skip it
 
         products.append({
             "name": name_tag.get_text(strip=True),
@@ -68,10 +68,10 @@ def parse_items_from_html(html_fragment: str) -> list:
 def collect_ranking(json_path: str = "ranking_data.json"):
     with open(json_path, "r", encoding="utf-8") as f:
         modules = json.load(f)
-    print(f"[디버그] 응답 모듈 개수: {len(modules)}")
+    print(f"[debug]{len(modules)} modules in the response")
 
     all_rows = []
-    item_module_count = 0  # 상품이 들어있는 모듈이 몇 번째인지 세는 카운터
+    item_module_count = 0  # tracks how many modules actually had products!
 
     for idx, module in enumerate(modules):
         html_fragment = module.get("htmlTag", "")
@@ -80,19 +80,19 @@ def collect_ranking(json_path: str = "ranking_data.json"):
 
         products = parse_items_from_html(html_fragment)
         if not products:
-            continue  # FreeHTML 등 상품 없는 모듈은 건너뜀
+            continue  # empty module (FreeHTML etc.), nothing to grab here
 
         category_position = item_module_count - SKIP_ITEM_MODULES
         item_module_count += 1
 
         if category_position < 0:
-            category = None  # 픽업스토어류 위젯
+            category = None  #one of the pickup store widgets, not a real category
         elif category_position < len(CATEGORY_NAMES):
             category = CATEGORY_NAMES[category_position]
         else:
-            category = None  # 예상 밖의 추가 모듈 (9개 넘어감)
+            category = None  # more modules than expected, just in case!
 
-        print(f"[디버그] idx={idx} → {item_module_count}번째 상품모듈, category={category}, 상품 수={len(products)}")
+        print(f"[debug] idx={idx} → item module #{item_module_count}, category={category}, {len(products)} products")
 
         for rank, product in enumerate(products, start=1):
             all_rows.append({
@@ -106,13 +106,13 @@ def collect_ranking(json_path: str = "ranking_data.json"):
 
 if __name__ == "__main__":
     rows = collect_ranking()
-    print(f"총 {len(rows)}개 상품 수집됨")
+    print(f"Collected {len(rows)} products total")
 
     if rows:
         with open("ranking_result.csv", "w", newline="", encoding="utf-8-sig") as f:
             writer = csv.DictWriter(f, fieldnames=rows[0].keys())
             writer.writeheader()
             writer.writerows(rows)
-        print("ranking_result.csv로 저장 완료")
+        print("ranking_result.csv saved successfully")
     else:
-        print("수집된 상품이 없어요 — ranking_data.json 파일이 최신인지, CSS 셀렉터가 실제 구조랑 맞는지 확인해보세요.")
+        print("Didn't collect anything this time - double check the ranking_date.js on is fresh and that the CSS selectors still match the page.")
