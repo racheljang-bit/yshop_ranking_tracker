@@ -1,22 +1,28 @@
 """
-Yahoo Shopping K-cosmetics category ranking collector(parser only)
+
+Yahoo Shopping K-cosmetics category ranking collector (parser only)
 
 How it works:
--Calling the Yahoo mc-module ApI directly from python gets blocked flagged by bot detection, so that route's out.
--Instead, the request is capturedfrom the browser console(F12->console)
-  using the real logged-in session, and the respinse gets downloaded as ranking_data.json.This script just read that file and parses out the HTML fields.
--Category matvhing took a few tries to get right. Asuuning "index N in the response = category N"
- didn't hold up, since the campaign module sturcture isn't cosistent (spacer modules come and go).
- What's acturally works: count the order that modules WITH real products show up in, 
- skip the first 2(those are pickup-store widgets, not real categories), then map the next 9 to the tab order (toner->~~~->lip)
-
+  - Calling the Yahoo mc-module API directly from Python gets flagged by
+    bot detection, so that route's out.
+  - Instead, the request is captured from the browser console (F12 ->
+    Console) using the real logged-in session, and the response gets
+    downloaded as ranking_data.json. This script just reads that file and
+    parses out the htmlTag fields.
+  - Category matching took a few tries to get right. Assuming "index N in
+    the response = category N" didn't hold up, since the campaign's module
+    structure isn't consistent (spacer modules come and go). What actually
+    works: count the order that modules WITH real products show up in,
+    skip the first 2 (those are pickup-store widgets, not real categories),
+    then map the next 9 to the tab order (toner -> ... -> lip).
 
 How to run it:
-1. In the browser, capture the mc-module request via "Copy as fetch"+the download snippet to get ranking_data.json.
-2. Drop that file in the same folder as this script.
-3. Run: python ranking_collector.py 
+  1. In the browser, grab the mc-module request via "Copy as fetch" + the
+     download snippet to get ranking_data.json
+  2. Drop that file in the same folder as this script
+  3. Run: python ranking_collector.py
+""" 
 
- """
 
 from bs4 import BeautifulSoup
 import json
